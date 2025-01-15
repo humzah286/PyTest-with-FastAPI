@@ -5,6 +5,8 @@ from sqlalchemy import create_engine, String
 from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase, Mapped, mapped_column
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
+import hashlib
+import time
 
 
 class Item(BaseModel):
@@ -25,6 +27,10 @@ class ItemUpdate(BaseModel):
 
 DATABASE_URL = "sqlite:///test.db"
 
+def generate_id(name: str, description: str) -> str:
+    raw_data = f"{name}-{description}-{time.time()}"
+    return hashlib.sha256(raw_data.encode()).hexdigest()
+
 
 class Base(DeclarativeBase):
     pass
@@ -32,9 +38,14 @@ class Base(DeclarativeBase):
 class DBItem(Base):
     __tablename__ = "items"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(30))
-    description: Mapped[Optional[str]]
+    id = mapped_column(String(64), primary_key=True)  # Store the hash as a string
+    name = mapped_column(String(30))
+    description = mapped_column(String(100))
+
+    def __init__(self, name: str, description: str):
+        self.name = name
+        self.description = description
+        self.id = generate_id(name, description)
 
 
 engine = create_engine(DATABASE_URL)

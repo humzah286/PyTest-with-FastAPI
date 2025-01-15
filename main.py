@@ -10,7 +10,7 @@ import time
 
 
 class Item(BaseModel):
-    id: int
+    id: str
     name: str
     description: Optional[str]
 
@@ -27,6 +27,7 @@ class ItemUpdate(BaseModel):
 
 DATABASE_URL = "sqlite:///test.db"
 
+
 def generate_id(name: str, description: str) -> str:
     raw_data = f"{name}-{description}-{time.time()}"
     return hashlib.sha256(raw_data.encode()).hexdigest()
@@ -42,10 +43,12 @@ class DBItem(Base):
     name = mapped_column(String(30))
     description = mapped_column(String(100))
 
+
     def __init__(self, name: str, description: str):
         self.name = name
         self.description = description
         self.id = generate_id(name, description)
+
 
 
 engine = create_engine(DATABASE_URL)
@@ -74,14 +77,11 @@ def get_db():
         database.close()
 
 
-# @app.on_startup
-# async def startup():
-#     Base.metadata.create_all(bind=engine)
 
 
 @app.post("/items")
 def create_item(item: ItemCreate, db: Session = Depends(get_db)) -> Item:
-    db_item = DBItem(**item.model_dump())
+    db_item = DBItem(**item.dict())
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
@@ -89,7 +89,7 @@ def create_item(item: ItemCreate, db: Session = Depends(get_db)) -> Item:
 
 
 @app.get("/items/{item_id}")
-def read_item(item_id: int, db: Session = Depends(get_db)) -> Item:
+def read_item(item_id: str, db: Session = Depends(get_db)) -> Item:
     db_item = db.query(DBItem).filter(DBItem.id == item_id).first()
     if db_item is None:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -97,11 +97,11 @@ def read_item(item_id: int, db: Session = Depends(get_db)) -> Item:
 
 
 @app.put("/items/{item_id}")
-def update_item(item_id: int, item: ItemUpdate, db: Session = Depends(get_db)) -> Item:
+def update_item(item_id: str, item: ItemUpdate, db: Session = Depends(get_db)) -> Item:
     db_item = db.query(DBItem).filter(DBItem.id == item_id).first()
     if db_item is None:
         raise HTTPException(status_code=404, detail="Item not found")
-    for key, value in item.model_dump().items():
+    for key, value in item.dict().items():
         setattr(db_item, key, value)
     db.commit()
     db.refresh(db_item)
@@ -109,7 +109,7 @@ def update_item(item_id: int, item: ItemUpdate, db: Session = Depends(get_db)) -
 
 
 @app.delete("/items/{item_id}")
-def delete_item(item_id: int, db: Session = Depends(get_db)) -> Item:
+def delete_item(item_id: str, db: Session = Depends(get_db)) -> Item:
     db_item = db.query(DBItem).filter(DBItem.id == item_id).first()
     if db_item is None:
         raise HTTPException(status_code=404, detail="Item not found")

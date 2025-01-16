@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from fastapi import FastAPI, HTTPException
 from fastapi.params import Depends
 from sqlalchemy import create_engine, String
@@ -14,11 +14,9 @@ class Item(BaseModel):
     name: str
     description: Optional[str]
 
-
 class ItemCreate(BaseModel):
     name: str
     description: Optional[str]
-
 
 class ItemUpdate(BaseModel):
     name: Optional[str]
@@ -77,8 +75,6 @@ def get_db():
         database.close()
 
 
-
-
 @app.post("/items")
 def create_item(item: ItemCreate, db: Session = Depends(get_db)) -> Item:
     db_item = DBItem(**item.dict())
@@ -94,6 +90,13 @@ def read_item(item_id: str, db: Session = Depends(get_db)) -> Item:
     if db_item is None:
         raise HTTPException(status_code=404, detail="Item not found")
     return Item(**db_item.__dict__)
+
+@app.get("/items")
+def read_all_items(db: Session = Depends(get_db)) -> List[Item]:
+    db_items = db.query(DBItem).all()
+    if db_items is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return [Item(**db_item.__dict__) for db_item in db_items]
 
 
 @app.put("/items/{item_id}")
